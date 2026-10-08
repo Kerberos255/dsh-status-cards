@@ -241,6 +241,8 @@ function PluginPanel({ scope, connection }) {
   const e = React.createElement, [snapshot, setSnapshot] = React.useState(null), [options, setOptions] = React.useState([]), [sessionId, setSession] = React.useState(''),
     [quota, setQuota] = React.useState(null), [balance, setBalance] = React.useState(null), [sources, setSources] = React.useState(null), [sourceIssue, setSourceIssue] = React.useState(''), [error, setError] = React.useState(''), [busy, setBusy] = React.useState(false);
   const epoch = React.useRef(0), serial = React.useRef(0), controller = React.useRef(null), selection = React.useRef('');
+  const formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = (currency,value) => (currency === 'CNY' ? '¥' : String.fromCharCode(36)) + formatter.format(Number(value));
   const config = useFileConfig(scope);
   const call = React.useCallback(async (method, args, signal) => {
     const result = await connection.rpc.call('/api', 'statusCenter/'+method, { args }, signal);
@@ -293,11 +295,11 @@ function PluginPanel({ scope, connection }) {
             :e('p',null,quota?.state==='unavailable'?'额度暂不可用':'正在读取额度…')):null,
           sources?.deepseek ? e('div',null,e('h4',null,'DeepSeek '+(sources.deepseekMode==='account'?'账号余额':'API 余额')),
             balance?.data?.balances ? e('dl',null,...balance.data.balances.flatMap(item=>{
-              const prefix=item.currency==='CNY'?'¥':'$';
+              const currency=item.currency;
               return balance.data.source==='account'
-                ? [item.normal!==null?row(item.currency+' 充值钱包',prefix+item.normal):null,
-                   item.bonus!==null?row(item.currency+' 赠送钱包',prefix+item.bonus):null].filter(Boolean)
-                : [row(item.currency+' 总余额',prefix+item.total)];
+                ? [item.normal!==null?row(item.currency+' 充值钱包',money(currency,item.normal)):null,
+                   item.bonus!==null&&Number(item.bonus)!==0?row(item.currency+' 赠送钱包',money(currency,item.bonus)):null].filter(Boolean)
+                : [row(item.currency+' 总余额',money(currency,item.total))];
             })) :e('p',null,balance?.state==='unavailable'?'余额暂不可用':'正在读取余额…')):null,
           !sources?.opencodeGo&&!sources?.deepseek ?
             e('p',null,sourceIssue||'尚未配置额度来源：配置 OpenCode Go 或 DeepSeek 后即可查看。'):null)
@@ -537,21 +539,22 @@ function PluginPanel({ scope, connection }) {
 
     function DeepSeekBalanceCard({ balance, loading, error, stale, mode }) {
       const rows = balance?.balances
-      const money = (currency, value) => (currency === 'CNY' ? '¥' : String.fromCharCode(36)) + value
+      const formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      const money = (currency, value) => (currency === 'CNY' ? '¥' : String.fromCharCode(36)) + formatter.format(Number(value))
       const item = (label, currency, value, key) => value == null ? null :
         React.createElement('div', { className: 'dsc-balance-total', key },
           React.createElement('span', { className: 'dsc-label' }, label),
-          React.createElement('strong', { className: 'dsc-balance-amount' }, money(currency, value)))
+          React.createElement('strong', { className: 'dsc-balance-amount', title: String(value) }, money(currency, value)))
       return React.createElement('div', { className: 'dsc-section' },
         React.createElement('div', { className: 'dsc-title' }, 'DeepSeek ' + (mode === 'api' ? 'API 余额' : '账号余额')),
         rows ? rows.map(entry => React.createElement('div', { className: 'dsc-balance-group', key: entry.currency },
           balance.source === 'account' ? React.createElement(React.Fragment, null,
             item(entry.currency + ' 充值钱包', entry.currency, entry.normal, 'paid'),
-            item(entry.currency + ' 赠送钱包', entry.currency, entry.bonus, 'bonus'))
+            Number(entry.bonus) !== 0 ? item(entry.currency + ' 赠送钱包', entry.currency, entry.bonus, 'bonus') : null)
           : React.createElement(React.Fragment, null,
             item(entry.currency + ' 总余额', entry.currency, entry.total, 'total'),
             React.createElement('div', { className: 'dsc-balance-detail' },
-              '赠送 ' + entry.granted + ' · 充值 ' + entry.toppedUp))
+              '赠送 ' + formatter.format(Number(entry.granted)) + ' · 充值 ' + formatter.format(Number(entry.toppedUp))))
         )) : React.createElement('p', { className: 'dsc-muted' + (error ? ' dsc-error' : '') },
           error || (loading ? '正在读取余额…' : '余额暂不可用')),
         balance?.source === 'api' && balance.available === false
