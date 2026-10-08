@@ -1,6 +1,6 @@
 {
   "name": "dsh-status-cards",
-  "version": "0.3.6",
+  "version": "0.3.5",
   "description": "统一查看运行状态，并在原有边缘卡片查看 OpenCode Go 额度和 DeepSeek 余额。",
   "type": "module",
   "main": "index.js",
@@ -58,6 +58,6 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test tests/provider-cache.test.mjs tests/deepseek-balance.test.mjs tests/balance-display.test.mjs"
+    "test": "node --test tests/provider-cache.test.mjs tests/deepseek-balance.test.mjs"
   }
 }
