@@ -1,0 +1,32 @@
+{
+  "dsh-status-cards": {
+    "rowId": "status-cards",
+    "endpoint": "statusCardsSettings",
+    "title": "状态卡片",
+    "description": "统一查看渠道、会话、后台任务与记忆健康状态，并在边缘卡片查看 OpenCode Go 额度。",
+    "fields": [
+      {
+        "key": "opencodeGoQuota",
+        "label": "显示 OpenCode Go 额度",
+        "type": "boolean",
+        "help": "额度凭证在 DSH 的凭证设置中配置。"
+      },
+      {
+        "key": "quotaDisplayMode",
+        "label": "额度卡片显示方式",
+        "type": "select",
+        "options": [
+          [
+            "auto-hide",
+            "边缘收起，悬停展开"
+          ],
+          [
+            "always",
+            "始终显示"
+          ]
+        ],
+        "help": "默认收在右边缘；可点击固定展开，按 Esc 收起。"
+      }
+    ]
+  }
+}

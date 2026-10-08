@@ -1,0 +1,4 @@
+# Local static status-card bundle for DSH Web.
+- insert:
+    - id: status-cards
+      name: dsh-status-cards
