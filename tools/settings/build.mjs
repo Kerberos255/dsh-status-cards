@@ -20,9 +20,9 @@ for (const [name, page] of Object.entries(pages)) {
     let source = fs.readFileSync(filename, 'utf8');
     source = source.replace(/\/\/ BEGIN GENERATED PLUGIN SETTINGS[\s\S]*?\/\/ END GENERATED PLUGIN SETTINGS\n/, '');
     source = source.replace(/\/\/ BEGIN GENERATED PLUGIN PANEL[\s\S]*?\/\/ END GENERATED PLUGIN PANEL\n/, '');
-    source = source.replace("    const React = require('react')\n", "    const React = require('react')\n" + embedded + (panel ? '// BEGIN GENERATED PLUGIN PANEL\n'+panel+'\n// END GENERATED PLUGIN PANEL\n' : ''));
+    source = source.replace("    const React = require('react')\n", () => "    const React = require('react')\n" + embedded + (panel ? '// BEGIN GENERATED PLUGIN PANEL\n'+panel+'\n// END GENERATED PLUGIN PANEL\n' : ''));
     source = source.replace(/\/\/ BEGIN GENERATED CONFIG INSTALL[\s\S]*?\/\/ END GENERATED CONFIG INSTALL/, '');
-    source = source.replace('    function apply(ctx) {\n', '    function apply(ctx) {\n// BEGIN GENERATED CONFIG INSTALL\n      const scope = installConfigPage(ctx, ' + (panel ? '{ ...'+JSON.stringify(options)+', panel: PluginPanel }' : JSON.stringify(options)) + ')\n// END GENERATED CONFIG INSTALL\n');
+    source = source.replace('    function apply(ctx) {\n', () => '    function apply(ctx) {\n// BEGIN GENERATED CONFIG INSTALL\n      const scope = installConfigPage(ctx, ' + (panel ? '{ ...'+JSON.stringify(options)+', panel: PluginPanel }' : JSON.stringify(options)) + ')\n// END GENERATED CONFIG INSTALL\n');
     fs.writeFileSync(filename, source);
   }
   const manifestPath = path.join(directory, 'package.json'), manifest = JSON.parse(fs.readFileSync(manifestPath));

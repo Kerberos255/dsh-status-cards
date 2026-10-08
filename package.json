@@ -1,7 +1,7 @@
 {
   "name": "dsh-status-cards",
-  "version": "0.3.4",
-  "description": "统一查看渠道、会话、后台任务与记忆健康状态，并在边缘卡片查看 OpenCode Go 额度。",
+  "version": "0.3.5",
+  "description": "统一查看运行状态，并在原有边缘卡片查看 OpenCode Go 额度和 DeepSeek 余额。",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -22,7 +22,8 @@
     "plugin-settings/",
     "provider-cache.js",
     "quota.js",
-    "status-center.js"
+    "status-center.js",
+    "deepseek-balance.js"
   ],
   "dsh": {
     "bundle": {
@@ -57,6 +58,6 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node --test tests/provider-cache.test.mjs"
+    "test": "node --test tests/provider-cache.test.mjs tests/deepseek-balance.test.mjs"
   }
 }

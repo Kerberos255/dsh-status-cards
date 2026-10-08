@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
   "opencodeGoQuota": true,
+  "deepseekBalance": true,
   "quotaDisplayMode": "auto-hide"
 }

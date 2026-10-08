@@ -25,7 +25,7 @@ export function parseWorkspaceUsage(html, now = Date.now()) {
   }
   return normalizeUsage({ usage });
 }
-async function readBody(response, signal, limit = 1048576) {
+export async function readBody(response, signal, limit = 1048576) {
   const declared = Number(response.headers?.get('content-length'));
   if (declared > limit) { await response.body?.cancel().catch(() => {}); throw failure('invalid-response'); }
   if (!response.body?.getReader) {

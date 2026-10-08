@@ -20,3 +20,12 @@
 - 状态工具 `status_health_check` 只读当前会话。查询复用原生 Session Query、Plugin Inventory、Jobs、Schedule，冷会话不创建 Agent。
 - 技能发布或记忆写入恢复遇到外部改动时，运行概况与渠道状态会提示需要审阅；外部向量清理未完成也会提示，只展示状态计数。
 - 当前上下文 token 只在原生 Session 已附加时从 Token Meter 测量；冷会话没有测量值，限流数据暂不可用。完整恢复核对和自动健康检查工作流继续按迁移方案推进。
+
+## DeepSeek 账号和 API 余额
+
+- 优先复用 DSH 已登录 DeepSeek 账号的 `deepseekAccount.getState()` / `getBalance()`，无需 API Key。账号返回的充值钱包和赠送钱包分别显示，金额字符串原样保留，不未经授权求和。
+- 若没有已登录账号，但 DSH 原生 `llm-deepseek` 配置指向官方 `api.deepseek.com`、对应凭证存在，则使用官方 `GET https://api.deepseek.com/user/balance` 作为替代查询方式。若两者都配置，默认优先账号余额。
+- OpenCode Go、DeepSeek 分别做配置检测；未配置的一项不占卡片空间。两项均未配置则显示简短提示；查询失败不显示为 ¥0.00。
+- 账号凭证和 API Key 始终留在 Host，前端只获取经过过滤的钱包数字、状态及余额来源。展开后每分钟最多发起一次请求，Host 缓存 45 秒。
+- 保留原有 360px 边缘面板、图标位置和打开方式。两个额度区块在同一张卡片内上下分隔，不改变面板宽度。
+- 实时账户余额取决于 DSH 已登录账户状态和平台网络访问；模拟测试金额不能视为当前账户余额。

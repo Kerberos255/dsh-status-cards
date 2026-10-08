@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { ProviderCache } from './provider-cache.js';
 import { readQuota, QUOTA_REFS } from './quota.js';
+import { readDeepSeekBalance, configuredSources } from './deepseek-balance.js';
 
 const good = data => ({ state: 'ok', data });
 const missing = () => ({ state: 'unavailable', code: 'service-unavailable', data: null });
@@ -22,13 +23,16 @@ export class StatusCenter extends TypertRemoteService {
     this.version = runtimeVersion(); this.closed = false; this.timeout = options.timeout ?? 700; this.quotaTimeout = options.quotaTimeout ?? 7000;
     ctx.inject(['profileContext'],scope=>{try{const manifest=JSON.parse(readFileSync(scope.profileContext.installAnchor,'utf8'));if(typeof manifest.version==='string'&&/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(manifest.version))this.version=manifest.version;}catch{this.version=null;}});
     for (const initialize of initializers) initialize.call(this);
-    for (const name of ['credentials', 'pluginInventory', 'pluginManager', 'sessionQuery', 'sessions', 'agents', 'jobs', 'schedule', 'tokenMeter', 'channelCore', 'discordChannelSettings', 'feishuChannelSettings', 'memoryDreaming', 'skillWorkshop', 'losslessContext']) {
+    for (const name of ['credentials', 'settings', 'deepseekAccount', 'pluginInventory', 'pluginManager', 'sessionQuery', 'sessions', 'agents', 'jobs', 'schedule', 'tokenMeter', 'channelCore', 'discordChannelSettings', 'feishuChannelSettings', 'memoryDreaming', 'skillWorkshop', 'losslessContext']) {
       ctx.inject([name], scope => {
         const service = scope.get(name); this.services.set(name, service); this.cache.invalidate();
         scope.effect(() => () => { if (this.services.get(name) === service) { this.services.delete(name); this.cache.invalidate(); } });
       });
     }
-    ctx.on('credentials/reference-updated', ref => { if (QUOTA_REFS.has(ref)) this.cache.invalidate('quota'); });
+    ctx.on('credentials/reference-updated', ref => { if (QUOTA_REFS.has(ref)) this.cache.invalidate('quota'); this.cache.invalidate('quota-sources'); this.cache.invalidate('deepseek-balance'); });
+    ctx.on('credentials/record-updated', () => { this.cache.invalidate('deepseek-balance'); this.cache.invalidate('quota-sources'); });
+    ctx.on('deepseek-account/signed-out', () => { this.cache.invalidate('deepseek-balance'); this.cache.invalidate('quota-sources'); });
+    ctx.on('deepseek-account/session-expired', () => { this.cache.invalidate('deepseek-balance'); this.cache.invalidate('quota-sources'); });
     ctx.effect(() => settings.configFile.subscribe(() => this.cache.invalidate()));
     ctx.inject(['tools'],scope=>scope.tools.register({
       name:'status_health_check',description:'只读检查当前会话的渠道、作业、自动任务、上下文、LCM、记忆和技能健康状态；不会调用模型、修改设置或自动修复。',parameters:{type:'object',properties:{},additionalProperties:false},
@@ -45,6 +49,25 @@ export class StatusCenter extends TypertRemoteService {
   async getQuota() {
     this.ready(); if (!this.settings.configFile.value.opencodeGoQuota) return { state: 'disabled', data: null, stale: false, updatedAt: null };
     return this.cache.read('quota', async signal => good(await readQuota(this.services.get('credentials'), signal)), { ttl: 45000, timeout: this.quotaTimeout });
+  }
+  async getQuotaSources() {
+    this.ready();
+    return this.cache.read('quota-sources', async signal => {
+      const value = await configuredSources(this.services.get('deepseekAccount'), this.services.get('settings'), this.services.get('credentials'), this.settings.configFile.value);
+      signal.throwIfAborted();
+      return good(value);
+    }, { ttl: 45000, timeout: 2500 });
+  }
+  async getDeepSeekBalance() {
+    this.ready();
+    if (!this.settings.configFile.value.deepseekBalance) return { state: 'disabled', data: null, stale: false, updatedAt: null };
+    return this.cache.read('deepseek-balance', async signal => {
+      const version=this.version||'0.2.0-rc.2';
+      const client={version,locale:'zh_CN',timezoneOffsetSeconds:-new Date().getTimezoneOffset()*60};
+      const value=await readDeepSeekBalance(this.services.get('deepseekAccount'),this.services.get('settings'),this.services.get('credentials'),client,signal);
+      signal.throwIfAborted();
+      return good(value);
+    }, { ttl: 45000, timeout: 35000 });
   }
   async session(sessionId, signal) {
     if (!sessionId) return { state: 'not-selected', data: null };
@@ -161,7 +184,7 @@ function findings(snapshot) {
   return { state: items.some(item => item.severity === 'error') ? 'error' : items.some(item => item.severity === 'warning') ? 'warning' : items.length ? 'unknown' : 'ok', findings: items };
 }
 const initializers = [];
-for (const name of ['getSnapshot','healthCheck','getQuota','sessionOptions']) Remote(StatusCenter.prototype[name], { kind:'method', name, static:false, private:false, addInitializer:fn => initializers.push(fn) });
+for (const name of ['getSnapshot','healthCheck','getQuota','getQuotaSources','getDeepSeekBalance','sessionOptions']) Remote(StatusCenter.prototype[name], { kind:'method', name, static:false, private:false, addInitializer:fn => initializers.push(fn) });
 
 const statusText = value => value.state === 'disabled' ? '已停用' : value.state === 'not-applicable' ? '不适用于当前预设' : value.state === 'ok' ? (value.stale ? '缓存，刷新失败' : '正常') : '不可用';
 export function formatChannelStatus(snapshot, mode) {

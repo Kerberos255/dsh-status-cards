@@ -3,13 +3,19 @@
     "rowId": "status-cards",
     "endpoint": "statusCardsSettings",
     "title": "状态卡片",
-    "description": "统一查看渠道、会话、后台任务与记忆健康状态，并在边缘卡片查看 OpenCode Go 额度。",
+    "description": "统一查看运行状态，并在原有边缘卡片查看 OpenCode Go 额度和 DeepSeek 余额。",
     "fields": [
       {
         "key": "opencodeGoQuota",
         "label": "显示 OpenCode Go 额度",
         "type": "boolean",
         "help": "额度凭证在 DSH 的凭证设置中配置。"
+      },
+      {
+        "key": "deepseekBalance",
+        "label": "显示 DeepSeek 余额",
+        "type": "boolean",
+        "help": "优先读取 DSH 已登录的 DeepSeek 账号余额；未登录时使用已配置的 DeepSeek API Key。都没有配置则不显示。"
       },
       {
         "key": "quotaDisplayMode",

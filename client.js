@@ -239,7 +239,7 @@ function installConfigPage(ctx, options) {
 // BEGIN GENERATED PLUGIN PANEL
 function PluginPanel({ scope, connection }) {
   const e = React.createElement, [snapshot, setSnapshot] = React.useState(null), [options, setOptions] = React.useState([]), [sessionId, setSession] = React.useState(''),
-    [quota, setQuota] = React.useState(null), [error, setError] = React.useState(''), [busy, setBusy] = React.useState(false);
+    [quota, setQuota] = React.useState(null), [balance, setBalance] = React.useState(null), [sources, setSources] = React.useState(null), [sourceIssue, setSourceIssue] = React.useState(''), [error, setError] = React.useState(''), [busy, setBusy] = React.useState(false);
   const epoch = React.useRef(0), serial = React.useRef(0), controller = React.useRef(null), selection = React.useRef('');
   const config = useFileConfig(scope);
   const call = React.useCallback(async (method, args, signal) => {
@@ -253,9 +253,17 @@ function PluginPanel({ scope, connection }) {
     void Promise.all([call('getSnapshot',{sessionId:selection.current},signal),call('sessionOptions',{},signal)]).then(([value,rows])=>{
       if(current()){setSnapshot(value);setOptions(rows.data??[]);}
     },reason=>{if(active())setError(signal.aborted?'状态查询超时，请稍后刷新。':reason.message);}).finally(()=>{if(active())setBusy(false);});
-    if(config.value?.opencodeGoQuota!==false)void call('getQuota',{},signal).then(value=>{if(current())setQuota(value);},()=>{if(active())setQuota({state:'unavailable',data:null});});
+    void call('getQuotaSources',{},signal).then(value=>{
+      if(!current())return;
+      if(value?.state!=='ok'||!value.data)throw new Error('无法检测额度来源');
+      setSources(value.data);setSourceIssue('');
+      if(value.data.opencodeGo)void call('getQuota',{},signal).then(v=>{if(current())setQuota(v);},()=>{if(active())setQuota({state:'unavailable',data:null});});
+      else setQuota(null);
+      if(value.data.deepseek)void call('getDeepSeekBalance',{},signal).then(v=>{if(current())setBalance(v);},()=>{if(active())setBalance({state:'unavailable',data:null});});
+      else setBalance(null);
+    }).catch(()=>{if(active()){setSources(null);setSourceIssue('暂时无法检查额度配置');}});
     return ()=>abort.abort();
-  },[call,config.value?.opencodeGoQuota]);
+  },[call,config.value?.opencodeGoQuota,config.value?.deepseekBalance]);
   React.useEffect(()=>{
     epoch.current++;const dispose=refresh(),focus=()=>refresh(),visible=()=>{if(document.visibilityState==='visible')refresh();};
     window.addEventListener('focus',focus);document.addEventListener('visibilitychange',visible);
@@ -277,7 +285,23 @@ function PluginPanel({ scope, connection }) {
       e('section',{className:'dsc-status-group'},e('h4',null,'记忆与技能'),e('dl',null,row('LCM',stateText(snapshot.lcm)),row('已索引事件',metric(snapshot.lcm,'indexedEvents',' 个')),row('Dream',snapshot.memory.data?.busy?'整理中':stateText(snapshot.memory)),row('记忆候选',snapshot.memory.data?.candidates?(snapshot.memory.data.candidates.pending??0)+' 项待审':stateText(snapshot.memory)),row('技能提案',snapshot.workshop.data?.proposals?(snapshot.workshop.data.proposals.pending??0)+' 项待审':stateText(snapshot.workshop))))),
       snapshot.health.findings.length?e('ul',{'aria-label':'健康检查结果'},...snapshot.health.findings.map((item,index)=>e('li',{key:index},(findingNames[item.item]??item.item)+'：'+(findingReasons[item.code]??'状态不可用')))):e('p',{role:'status'},'当前检查项正常。'),
       e('p',{className:'dsc-status-time'},'更新于 '+new Date(snapshot.generatedAt).toLocaleTimeString('zh-CN')+'；页面空闲时不轮询。')):null,
-    config.value?.opencodeGoQuota!==false?e('section',{className:'dsc-status-group'},e('h4',null,'OpenCode Go 额度'),quota?.data?.usage?e('dl',null,...[['rolling','5 小时'],['weekly','每周'],['monthly','每月']].map(([key,name])=>row(name,'剩余 '+(100-quota.data.usage[key].percent)+'%')),quota.stale?e('p',null,'刷新失败，显示最近缓存。'):null):e('p',null,quota?.state==='not-configured'?'尚未配置凭证':quota?.state==='unavailable'?'额度暂不可用':'读取中…')):null);
+    (sources || sourceIssue)
+      ? e('section',{className:'dsc-status-group'},e('h4',null,'模型额度与余额'),
+          sources?.opencodeGo ? e('div',null,e('h4',null,'OpenCode Go'),
+            quota?.data?.usage ? e('dl',null,...[['rolling','5 小时'],['weekly','每周'],['monthly','每月']]
+              .map(([key,name])=>row(name,'剩余 '+(100-quota.data.usage[key].percent)+'%')))
+            :e('p',null,quota?.state==='unavailable'?'额度暂不可用':'正在读取额度…')):null,
+          sources?.deepseek ? e('div',null,e('h4',null,'DeepSeek '+(sources.deepseekMode==='account'?'账号余额':'API 余额')),
+            balance?.data?.balances ? e('dl',null,...balance.data.balances.flatMap(item=>{
+              const prefix=item.currency==='CNY'?'¥':'$';
+              return balance.data.source==='account'
+                ? [item.normal!==null?row(item.currency+' 充值钱包',prefix+item.normal):null,
+                   item.bonus!==null?row(item.currency+' 赠送钱包',prefix+item.bonus):null].filter(Boolean)
+                : [row(item.currency+' 总余额',prefix+item.total)];
+            })) :e('p',null,balance?.state==='unavailable'?'余额暂不可用':'正在读取余额…')):null,
+          !sources?.opencodeGo&&!sources?.deepseek ?
+            e('p',null,sourceIssue||'尚未配置额度来源：配置 OpenCode Go 或 DeepSeek 后即可查看。'):null)
+      :null);
 }
 
 // END GENERATED PLUGIN PANEL
@@ -286,6 +310,7 @@ function PluginPanel({ scope, connection }) {
     const RAIL_WIDTH = 360
     const REFRESH_MS = 60 * 1000
     const USAGE_ROUTE = '/api/dsh-status-cards/opencode-go'
+    const DEEPSEEK_ROUTE = '/api/dsh-status-cards/deepseek'
 
 
     const css = `
@@ -366,6 +391,13 @@ function PluginPanel({ scope, connection }) {
         animation: none !important;
         transition: none !important;
       }
+      .dsc-section + .dsc-section { border-top: 1px solid var(--dsw-alias-border-l1, var(--dsw-alias-border-l2)); margin-top: 14px; padding-top: 14px; }
+      .dsc-section .dsc-title { margin-bottom: 12px; }
+      .dsc-balance-group + .dsc-balance-group { margin-top: 12px; }
+      .dsc-balance-total { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; min-width: 0; }
+      .dsc-balance-total + .dsc-balance-total { margin-top: 6px; }
+      .dsc-balance-amount { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+      .dsc-balance-detail { font-size: 11px; line-height: 18px; color: var(--dsw-alias-label-tertiary); margin-top: 3px; }
       .dsc-title {
         font-size: 14px;
         line-height: 20px;
@@ -495,16 +527,41 @@ function PluginPanel({ scope, connection }) {
           ]
         : [React.createElement('div', { key: 'state', className: `dsc-muted${error ? ' dsc-error' : ''}` }, error || (loading ? '正在读取额度…' : '暂无额度数据'))]
 
-      return React.createElement('section', { className: 'dsc-card' },
+      return React.createElement('div', { className: 'dsc-section' },
         React.createElement('div', { className: 'dsc-title' }, 'OpenCode Go 额度'),
         stale ? React.createElement('p', { className: 'dsc-muted' }, '刷新失败，显示最近缓存。') : null,
         body,
       )
     }
 
+
+    function DeepSeekBalanceCard({ balance, loading, error, stale, mode }) {
+      const rows = balance?.balances
+      const money = (currency, value) => (currency === 'CNY' ? '¥' : String.fromCharCode(36)) + value
+      const item = (label, currency, value, key) => value == null ? null :
+        React.createElement('div', { className: 'dsc-balance-total', key },
+          React.createElement('span', { className: 'dsc-label' }, label),
+          React.createElement('strong', { className: 'dsc-balance-amount' }, money(currency, value)))
+      return React.createElement('div', { className: 'dsc-section' },
+        React.createElement('div', { className: 'dsc-title' }, 'DeepSeek ' + (mode === 'api' ? 'API 余额' : '账号余额')),
+        rows ? rows.map(entry => React.createElement('div', { className: 'dsc-balance-group', key: entry.currency },
+          balance.source === 'account' ? React.createElement(React.Fragment, null,
+            item(entry.currency + ' 充值钱包', entry.currency, entry.normal, 'paid'),
+            item(entry.currency + ' 赠送钱包', entry.currency, entry.bonus, 'bonus'))
+          : React.createElement(React.Fragment, null,
+            item(entry.currency + ' 总余额', entry.currency, entry.total, 'total'),
+            React.createElement('div', { className: 'dsc-balance-detail' },
+              '赠送 ' + entry.granted + ' · 充值 ' + entry.toppedUp))
+        )) : React.createElement('p', { className: 'dsc-muted' + (error ? ' dsc-error' : '') },
+          error || (loading ? '正在读取余额…' : '余额暂不可用')),
+        balance?.source === 'api' && balance.available === false
+          ? React.createElement('p', { className: 'dsc-muted dsc-error' }, 'API 余额当前不可用') : null,
+        stale ? React.createElement('p', { className: 'dsc-muted' }, '刷新失败，显示最近缓存。') : null)
+    }
+
     function apply(ctx) {
 // BEGIN GENERATED CONFIG INSTALL
-      const scope = installConfigPage(ctx, { ...{"rowId":"status-cards","endpoint":"statusCardsSettings","title":"状态卡片","description":"统一查看渠道、会话、后台任务与记忆健康状态，并在边缘卡片查看 OpenCode Go 额度。","fields":[{"key":"opencodeGoQuota","label":"显示 OpenCode Go 额度","type":"boolean","help":"额度凭证在 DSH 的凭证设置中配置。"},{"key":"quotaDisplayMode","label":"额度卡片显示方式","type":"select","options":[["auto-hide","边缘收起，悬停展开"],["always","始终显示"]],"help":"默认收在右边缘；可点击固定展开，按 Esc 收起。"}],"packageName":"dsh-status-cards"}, panel: PluginPanel })
+      const scope = installConfigPage(ctx, { ...{"rowId":"status-cards","endpoint":"statusCardsSettings","title":"状态卡片","description":"统一查看运行状态，并在原有边缘卡片查看 OpenCode Go 额度和 DeepSeek 余额。","fields":[{"key":"opencodeGoQuota","label":"显示 OpenCode Go 额度","type":"boolean","help":"额度凭证在 DSH 的凭证设置中配置。"},{"key":"deepseekBalance","label":"显示 DeepSeek 余额","type":"boolean","help":"优先读取 DSH 已登录的 DeepSeek 账号余额；未登录时使用已配置的 DeepSeek API Key。都没有配置则不显示。"},{"key":"quotaDisplayMode","label":"额度卡片显示方式","type":"select","options":[["auto-hide","边缘收起，悬停展开"],["always","始终显示"]],"help":"默认收在右边缘；可点击固定展开，按 Esc 收起。"}],"packageName":"dsh-status-cards"}, panel: PluginPanel })
 // END GENERATED CONFIG INSTALL
 
 
@@ -523,8 +580,9 @@ function PluginPanel({ scope, connection }) {
 
 
 
+
       ctx.effect(() => { const style = document.createElement('style'); style.dataset.pluginCss = 'dsh-status-cards'; style.textContent = css; document.head.appendChild(style); return () => style.remove() })
-      let state = { hasSession: false, usage: null, quotaStale: false, loading: false, error: null, settings: { opencodeGoQuota: true, quotaDisplayMode: 'auto-hide' } }
+      let state = { hasSession: false, sources: null, sourcesError: null, usage: null, quotaStale: false, loading: false, error: null, balance: null, balanceStale: false, balanceLoading: false, balanceError: null, settings: { opencodeGoQuota: true, deepseekBalance: true, quotaDisplayMode: 'auto-hide' } }
       const listeners = new Set()
 
       function emit() { for (const listener of listeners) listener() }
@@ -568,23 +626,42 @@ function PluginPanel({ scope, connection }) {
           const [pinned, setPinned] = React.useState(false)
           const [dismissed, setDismissed] = React.useState(false)
           const lastFetch = React.useRef(0)
+          const lastBalanceFetch = React.useRef(0)
           const panelId = 'dsc-quota-' + React.useId()
           const autoHide = snapshot.settings.quotaDisplayMode !== 'always'
           const expanded = !autoHide || (!dismissed && (hovered || focused || pinned))
 
           React.useEffect(() => {
-            if (!snapshot.hasSession || snapshot.settings.opencodeGoQuota === false) {
+            if (!snapshot.hasSession) {
               setHovered(false); setFocused(false); setPinned(false); setDismissed(false)
             }
-          }, [snapshot.hasSession, snapshot.settings.opencodeGoQuota])
+          }, [snapshot.hasSession])
 
           React.useEffect(() => {
-            document.body.classList.toggle('dsc-active', snapshot.hasSession && snapshot.settings.opencodeGoQuota !== false && !autoHide)
+            document.body.classList.toggle('dsc-active', snapshot.hasSession && !autoHide)
             return () => document.body.classList.remove('dsc-active')
-          }, [snapshot.hasSession, snapshot.settings.opencodeGoQuota, autoHide])
+          }, [snapshot.hasSession, autoHide])
+
 
           React.useEffect(() => {
-            if (!snapshot.hasSession || snapshot.settings.opencodeGoQuota === false || !expanded) return undefined
+            if (!snapshot.hasSession) return undefined
+            const lifetime = new AbortController()
+            const inspect = async () => {
+              try {
+                const response = await ctx.connection.rpc.call('/api', 'statusCenter/getQuotaSources', { args: {} }, lifetime.signal)
+                if (!response.ok || response.value?.state !== 'ok') throw new Error('无法读取额度来源')
+                if (!lifetime.signal.aborted) setState({ sources: response.value.data, sourcesError: null })
+              } catch {
+                if (!lifetime.signal.aborted) setState({ sources: null, sourcesError: '暂时无法检查额度配置' })
+              }
+            }
+            void inspect()
+            window.addEventListener('focus', inspect)
+            return () => { lifetime.abort(); window.removeEventListener('focus', inspect) }
+          }, [snapshot.hasSession, snapshot.settings.opencodeGoQuota, snapshot.settings.deepseekBalance])
+
+          React.useEffect(() => {
+            if (!snapshot.hasSession || !snapshot.sources?.opencodeGo || !expanded) return undefined
             const lifetime = new AbortController()
             let inFlight = false
             const refresh = async () => {
@@ -606,7 +683,34 @@ function PluginPanel({ scope, connection }) {
             void refresh()
             const timer = window.setInterval(() => void refresh(), REFRESH_MS)
             return () => { window.clearInterval(timer); lifetime.abort(); setState({ loading: false }) }
-          }, [snapshot.hasSession, snapshot.settings.opencodeGoQuota, expanded])
+          }, [snapshot.hasSession, snapshot.sources?.opencodeGo, expanded])
+
+
+          React.useEffect(() => {
+            if (!snapshot.hasSession || !snapshot.sources?.deepseek || !expanded) return undefined
+            const lifetime = new AbortController()
+            let inFlight = false
+            const refresh = async () => {
+              if (inFlight || lifetime.signal.aborted || Date.now() - lastBalanceFetch.current < REFRESH_MS) return
+              inFlight = true
+              setState({ balanceLoading: true })
+              try {
+                const response = await fetch(DEEPSEEK_ROUTE, { cache: 'no-store', signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(40000)]) })
+                const data = await response.json()
+                if (lifetime.signal.aborted) return
+                if (!response.ok || !Array.isArray(data?.balances)) throw new Error(data?.error || '余额暂不可用')
+                setState({ balance: data, balanceStale: !!data.stale, balanceLoading: false, balanceError: null })
+              } catch (error) {
+                if (!lifetime.signal.aborted) setState({ balance: null, balanceStale: false, balanceLoading: false, balanceError: error instanceof Error ? error.message : '余额暂不可用' })
+              } finally {
+                if (!lifetime.signal.aborted) lastBalanceFetch.current = Date.now()
+                inFlight = false
+              }
+            }
+            void refresh()
+            const timer = window.setInterval(() => void refresh(), REFRESH_MS)
+            return () => { window.clearInterval(timer); lifetime.abort(); setState({ balanceLoading: false }) }
+          }, [snapshot.hasSession, snapshot.sources?.deepseek, expanded])
 
           React.useEffect(() => {
             if (!snapshot.hasSession) return undefined
@@ -627,16 +731,27 @@ function PluginPanel({ scope, connection }) {
             }
           }, [snapshot.hasSession])
 
-          if (!snapshot.hasSession || snapshot.settings.opencodeGoQuota === false) return null
+          if (!snapshot.hasSession) return null
 
+          const showGo = !!snapshot.sources?.opencodeGo
+          const showDeepSeek = !!snapshot.sources?.deepseek
           const cards = [
-            React.createElement(QuotaCard, {
-              key: 'opencode-go-quota',
-              usage: snapshot.usage,
-              loading: snapshot.loading,
-              error: snapshot.error,
-              stale: snapshot.quotaStale,
-            }),
+            React.createElement('section', { className: 'dsc-card', key: 'balances' },
+              showGo ? React.createElement(QuotaCard, {
+                key: 'opencode-go-quota', usage: snapshot.usage,
+                loading: snapshot.loading, error: snapshot.error, stale: snapshot.quotaStale,
+              }) : null,
+              showDeepSeek ? React.createElement(DeepSeekBalanceCard, {
+                key: 'deepseek-balance', mode: snapshot.sources?.deepseekMode,
+                balance: snapshot.balance, loading: snapshot.balanceLoading,
+                error: snapshot.balanceError, stale: snapshot.balanceStale,
+              }) : null,
+              !showGo && !showDeepSeek ? React.createElement('div', { className: 'dsc-section' },
+                React.createElement('div', { className: 'dsc-title' }, '尚未配置额度来源'),
+                React.createElement('p', { className: 'dsc-muted' },
+                  snapshot.sourcesError || (snapshot.sources === null ? '正在检查额度配置…' :
+                    '配置 OpenCode Go 或 DeepSeek 后，即可在这里查看额度与余额。'))) : null,
+            ),
           ]
 
           return React.createElement('aside', {
@@ -653,7 +768,7 @@ function PluginPanel({ scope, connection }) {
               if (autoHide && event.key === 'Escape') { event.preventDefault(); setPinned(false); setDismissed(true) }
             },
           }, autoHide ? React.createElement('button', {
-            type: 'button', className: 'dsc-tab', title: 'OpenCode Go 额度', 'aria-label': pinned ? '取消固定额度卡片' : '固定额度卡片',
+            type: 'button', className: 'dsc-tab', title: '模型额度与余额', 'aria-label': pinned ? '取消固定额度卡片' : '固定额度卡片',
             'aria-expanded': expanded, 'aria-controls': panelId, 'aria-pressed': pinned,
             onClick: () => { setPinned(value => !value); setDismissed(false) },
           }, React.createElement(QuotaIcon)) : null,
