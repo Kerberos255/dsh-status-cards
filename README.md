@@ -1,31 +1,43 @@
-# DSH Status Cards
+# Status Cards for DeepSeek Harness
 
-本地统一状态服务，在官方插件设置页查看运行概况，在会话页右边缘查看额度。
+[简体中文](README.zh-CN.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) · [Security](SECURITY.md)
 
-## 当前卡片
+A **unified DSH status dashboard** with a compact session-edge panel. See session health, model/preset/permission state, channel connectivity, jobs, schedules, memory/compaction status, and optional provider usage.
 
-- OpenCode Go 额度：5 小时 / 周 / 月三个窗口，显示剩余百分比、静态进度条和重置时间。
-- “设置 → 插件 → 状态卡片”的运行概况汇总会话预设/模型/权限、渠道连接、后台作业、自动任务、等待交互、LCM、Dream 与技能提案计数。可选择具体会话；整机概况只读计数。
-- 飞书与 Discord 的 `/status` 使用同一个 `statusCenter` 服务，只读当前绑定会话；隐藏本机路径、额度、其他会话信息和记忆/技能正文。
-- 在官方“插件 → 状态卡片”中直接配置额度开关与显示方式。设置保存在插件运行目录的 config.json。
-- 默认收起为右边缘的 DeepSeek 鲸鱼图标：悬停或键盘焦点展开，移出收起，点击可固定，Esc 收起。可选择始终显示。
+## Features
 
-## 设计边界
+- A read-only **Status Center** in plugin settings for session-scoped diagnostics and plugin health.
+- A collapsible side panel showing **OpenCode Go usage windows** and **DeepSeek account/API balances** when those sources are configured.
+- Discord/Feishu `/status` integration via [Channel Core](https://github.com/Kerberos255/dsh-channel-core), scoped to the current bound conversation.
+- Cached/on-demand provider requests, not a continuously running high-frequency quota poll.
+- Keeps account credentials in the DSH host; the client receives bounded status/amount data.
 
-- 只在打开具体 Session 时显示。
-- 收起时不预留聊天宽度、不轮询额度。展开时每分钟最多请求一次；后端缓存 45 秒并合并并发请求。隐藏或卸载时取消前端请求，后端共享请求独立受七秒超时和插件卸载约束。
-- 图标复用随包官方 `dsh-web-frontend/dist/favicon.svg` 的路径（DSH MIT 源码），不加载远程图片。展开、收起与图标滑出只使用 160ms 的 CSS opacity/transform 过渡，无常驻动画或新增轮询；尊重系统减少动态效果的偏好。收起的面板标记 inert 与 aria-hidden。
-- Host 侧读取 DSH credentials，浏览器端不会拿到 OpenCode Go Cookie/API Key。
-- 设置页在打开、获得焦点、手动刷新时读取，不使用空闲轮询。单项查询受独立超时约束；缺失服务显示不可用，不显示成零。旧额度最多保留五分钟，并标记缓存；认证失败或凭证修改会清除旧值。
-- 状态工具 `status_health_check` 只读当前会话。查询复用原生 Session Query、Plugin Inventory、Jobs、Schedule，冷会话不创建 Agent。
-- 技能发布或记忆写入恢复遇到外部改动时，运行概况与渠道状态会提示需要审阅；外部向量清理未完成也会提示，只展示状态计数。
-- 当前上下文 token 只在原生 Session 已附加时从 Token Meter 测量；冷会话没有测量值，限流数据暂不可用。完整恢复核对和自动健康检查工作流继续按迁移方案推进。
+## Install and setup
 
-## DeepSeek 账号和 API 余额
+Requires the DSH session and plugin services declared in [package.json](package.json).
 
-- 优先复用 DSH 已登录 DeepSeek 账号的 `deepseekAccount.getState()` / `getBalance()`，无需 API Key。账号返回的充值钱包和赠送钱包分别显示，金额字符串原样保留，不未经授权求和。
-- 若没有已登录账号，但 DSH 原生 `llm-deepseek` 配置指向官方 `api.deepseek.com`、对应凭证存在，则使用官方 `GET https://api.deepseek.com/user/balance` 作为替代查询方式。若两者都配置，默认优先账号余额。
-- OpenCode Go、DeepSeek 分别做配置检测；未配置的一项不占卡片空间。两项均未配置则显示简短提示；查询失败不显示为 ¥0.00。
-- 账号凭证和 API Key 始终留在 Host，前端只获取经过过滤的钱包数字、状态及余额来源。展开后每分钟最多发起一次请求，Host 缓存 45 秒。
-- 保留原有 360px 边缘面板、图标位置和打开方式。两个额度区块在同一张卡片内上下分隔，不改变面板宽度。
-- 实时账户余额取决于 DSH 已登录账户状态和平台网络访问；模拟测试金额不能视为当前账户余额。
+```sh
+dsh plugin --profile desktop add github:Kerberos255/dsh-status-cards
+```
+
+Use your own profile as appropriate. Restart DSH when plugin code changes. Open **Settings → Plugins → Status Cards** and choose which available provider balances or cards should appear.
+
+## What the UI shows
+
+| Area | Information |
+| --- | --- |
+| Status Center | Current session, selected model/preset/permissions, channel, jobs, schedules, plugin status |
+| Session-edge card | Configured usage and wallet sources, remaining windows and refresh status |
+| Discord / Feishu | A privacy-scoped view of the **current bound session** only |
+
+An unconfigured or unavailable provider is **not** displayed as a zero balance. Provider data may be cached, delayed, or unavailable. Only configured sources appear in the quota panel.
+
+## Privacy and tests
+
+Credentials/cookies/API keys stay on the Host. Remote chat channels do **not** receive machine paths, all-account balances, other sessions, or private memory/skill text through status. Data that is not available is marked unavailable rather than fabricated.
+
+Run `npm test` for portable provider-cache, balance-formatting and status logic. Actual balances and channel delivery require live, authorized services. Configuration sample: [config.example.json](config.example.json).
+
+Related: [Channel Core](https://github.com/Kerberos255/dsh-channel-core) · [Lossless Context](https://github.com/Kerberos255/dsh-lossless-context) · [Dream & Memory](https://github.com/Kerberos255/dsh-memory-dreaming).
+
+MIT licensed. See [LICENSE](LICENSE).
