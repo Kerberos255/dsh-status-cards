@@ -4,6 +4,8 @@ import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import { ProviderCache } from './provider-cache.js';
 import { readQuota, QUOTA_REFS } from './quota.js';
 import { readDeepSeekBalance, configuredSources } from './deepseek-balance.js';
+import { readWeatherCache, statusCard } from './feishu-personal-status.js';
+import { discordStatusPanel } from './discord-personal-status.js';
 
 const good = data => ({ state: 'ok', data });
 const missing = () => ({ state: 'unavailable', code: 'service-unavailable', data: null });
@@ -160,6 +162,31 @@ export class StatusCenter extends TypertRemoteService {
   channelSnapshot(sessionId, viewer) {
     if (!viewer || !['discord','feishu'].includes(viewer.provider) || typeof viewer.accountId !== 'string') throw new RemoteError('status/invalid-channel', '渠道范围无效', {});
     return this.snapshot(sessionId, viewer);
+  }
+  async personalStatusSources() {
+    this.ready();
+    // Keep shared private quota reads bounded without starting an Agent turn.
+    const limited=read=>new Promise(resolve=>{
+      const timer=setTimeout(()=>resolve({state:'unavailable',data:null,code:'timeout'}),9000);
+      Promise.resolve().then(read).then(value=>{clearTimeout(timer);resolve(value);},()=>{clearTimeout(timer);resolve({state:'unavailable',data:null});});
+    });
+    const [quota,balance]=await Promise.all([
+      limited(()=>this.getQuota()),limited(()=>this.getDeepSeekBalance())
+    ]);
+    const weather=readWeatherCache(this.settings.configFile.value.weatherCachePath);
+    return {quota,balance,weather};
+  }
+  async feishuPersonalStatus(sessionId,viewer,recentAt=null) {
+    this.ready();this.validateSession(sessionId);
+    if(viewer?.provider!=='feishu'||typeof viewer.accountId!=='string')
+      throw new RemoteError('status/invalid-channel','渠道范围无效',{});
+    return statusCard({recentAt,...await this.personalStatusSources()});
+  }
+  async discordPersonalStatus(viewer,recentAt=null) {
+    this.ready();
+    if(viewer?.provider!=='discord'||typeof viewer.accountId!=='string')
+      throw new RemoteError('status/invalid-channel','渠道范围无效',{});
+    return discordStatusPanel({recentAt,...await this.personalStatusSources()});
   }
   async channelStatus(sessionId, viewer, mode) { return formatChannelStatus(await this.channelSnapshot(sessionId, viewer), mode); }
 }

@@ -1,6 +1,6 @@
 {
   "name": "dsh-status-cards",
-  "version": "0.3.8",
+  "version": "0.3.13",
   "description": "统一查看运行状态，并在原有边缘卡片查看 OpenCode Go 额度和 DeepSeek 余额。",
   "type": "module",
   "main": "index.js",
@@ -25,7 +25,9 @@
     "provider-cache.js",
     "quota.js",
     "status-center.js",
-    "deepseek-balance.js"
+    "deepseek-balance.js",
+    "discord-personal-status.js",
+    "feishu-personal-status.js"
   ],
   "dsh": {
     "bundle": {
@@ -42,14 +44,14 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.4 || 4.0.5-alpha.1",
-    "@deepseek-ai/dsh-settings": "0.2.0-rc.2 || 0.2.1-alpha.1",
+    "@deepseek-ai/cordis": "4.0.4 || 4.0.5-alpha.1 || 4.0.5",
+    "@deepseek-ai/dsh-settings": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-alpha.1 || >=0.2.1",
     "@deepseek-ai/schemastery": "^3.18.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.0-rc.2 || 0.2.1-alpha.1",
-    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2 || 0.2.1-alpha.1"
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-alpha.1 || >=0.2.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-alpha.1 || >=0.2.1",
+    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-alpha.1 || >=0.2.1",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-alpha.1 || >=0.2.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-alpha.1 || >=0.2.1"
   },
   "license": "MIT",
   "keywords": [
@@ -57,9 +59,14 @@
     "deepseek-harness"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=24",
+    "dsh": ">=0.2.0-rc.2"
   },
   "scripts": {
     "test": "node --test tests/provider-cache.test.mjs tests/deepseek-balance.test.mjs tests/balance-display.test.mjs"
+  },
+  "dshCompatibility": {
+    "testedRuntime": "0.2.1-rc.2",
+    "policy": "warn"
   }
 }
