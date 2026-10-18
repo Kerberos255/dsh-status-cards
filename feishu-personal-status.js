@@ -111,10 +111,10 @@ export function statusCard({recentAt=null,quota,balance,weather,now=Date.now()}=
   elements.push({tag:'markdown',content:lines.join('\n')});
  });
  const card={
-  schema:'2.0',config:{wide_screen_mode:true,enable_forward:false,summary:{content:'白泽状态 · 额度、余额与天气'}},
-  header:{template:'blue',title:{tag:'plain_text',content:'🐾 白泽状态'}},
+  schema:'2.0',config:{wide_screen_mode:true,enable_forward:false,summary:{content:'DSH 状态 · 额度、余额与天气'}},
+  header:{template:'blue',title:{tag:'plain_text',content:'📊 DSH 状态'}},
   body:{elements}
  };
  if(Buffer.byteLength(JSON.stringify(card),'utf8')>20000)throw new Error('personal-status-card-oversize');
- return {card,text:'🐾 白泽状态\n'+chunks.map(x=>x.join('\n')).join('\n\n')};
+ return {card,text:'📊 DSH 状态\n'+chunks.map(x=>x.join('\n')).join('\n\n')};
 }

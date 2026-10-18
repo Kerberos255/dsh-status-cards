@@ -28,7 +28,7 @@ export function discordStatusPanel({recentAt=null,quota,balance,weather,now=Date
  ].join('\n');
  return {
   embeds:[{
-   title:'🐾 状态台',
+   title:'📊 DSH 状态',
    description,
    color:0x409EFF,
    footer:{text:'🕒 数据更新 '+timestamp}
