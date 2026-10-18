@@ -37,7 +37,7 @@ export class StatusCenter extends TypertRemoteService {
     ctx.on('deepseek-account/session-expired', () => { this.cache.invalidate('deepseek-balance'); this.cache.invalidate('quota-sources'); });
     ctx.effect(() => settings.configFile.subscribe(() => this.cache.invalidate()));
     ctx.inject(['tools'],scope=>scope.tools.register({
-      name:'status_health_check',description:'只读检查当前会话的渠道、作业、自动任务、上下文、LCM、记忆和技能健康状态；不会调用模型、修改设置或自动修复。',parameters:{type:'object',properties:{},additionalProperties:false},
+      name:'status_health_check',description:'只读检查本 Session 的渠道、任务、上下文、LCM、记忆与技能健康状态；不修改配置。',parameters:{type:'object',properties:{},additionalProperties:false},
       output:{schema:{type:'object',additionalProperties:true},render:(_args,value)=>[{type:'text',text:JSON.stringify(value)}]},
       execute:async(_args,exec)=>{exec.signal.throwIfAborted();const sessionId=exec.agent?.session.id;if(!sessionId)throw new Error('缺少当前会话');const value=await this.snapshot(sessionId,{scopeOnly:true});exec.signal.throwIfAborted();return value;},
     }));
