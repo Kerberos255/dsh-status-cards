@@ -1,47 +1,42 @@
-# Status Cards for DeepSeek Harness
+# DSH 状态卡片（Status Cards）
 
-[简体中文](README.zh-CN.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) · [Security](SECURITY.md)
+[English](README.en.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) · [安全说明](SECURITY.md)
 
-A **unified DSH status dashboard** with a compact session-edge panel. See session health, model/preset/permission state, channel connectivity, jobs, schedules, memory/compaction status, and optional provider usage.
+统一查看 **DSH 会话、任务、渠道、插件与额度状态**，并在聊天页边缘使用可收起的小卡片。它不只是“额度插件”。
 
-## Features
+## 主要功能
 
-- A read-only **Status Center** in plugin settings for session-scoped diagnostics and plugin health.
-- A collapsible side panel showing **OpenCode Go usage windows** and **DeepSeek account/API balances** when those sources are configured.
-- Discord/Feishu `/status` integration via [Channel Core](https://github.com/Kerberos255/dsh-channel-core), scoped to the current bound conversation.
-- Cached/on-demand provider requests, not a continuously running high-frequency quota poll.
-- Keeps account credentials in the DSH host; the client receives bounded status/amount data.
+- 「设置 → 插件 → 状态卡片」提供会话状态总览：当前模型/预设/权限、渠道连接、Jobs、Schedule、LCM、Dream、技能和恢复提示。
+- 会话右侧提供可收起的额度面板：可显示 OpenCode Go 使用窗口、DeepSeek 已登录账户及 API 余额。
+- 与 Channel Core 协作，让飞书或 Discord 的 `/status` 返回**当前绑定会话**的只读状态，不泄露其他会话。
+- 仅在需要时查询并缓存额度，不持续高频轮询；无凭证或接口不可用时给出明确状态，不伪装为零余额。
 
-## Install and setup
+## 安装与快速开始
 
-Requires the DSH session and plugin services declared in [package.json](package.json).
+运行要求和依赖见 [package.json](package.json)：
 
 ```sh
 dsh plugin --profile desktop add github:Kerberos255/dsh-status-cards
 ```
 
-Use your own profile as appropriate. Restart DSH when plugin code changes. Open **Settings → Plugins → Status Cards** and choose which available provider balances or cards should appear.
+在「设置 → 插件 → 状态卡片」选择开启哪些额度来源和展示方式，刷新检查状态。更新代码后重启 DSH。聊天页的卡片默认缩在边缘图标处，可展开或固定，不持续占用聊天宽度。
 
-## What the UI shows
+## 各模块显示什么？
 
-| Area | Information |
+| 界面 | 作用 |
 | --- | --- |
-| Status Center | Current session, selected model/preset/permissions, channel, jobs, schedules, plugin status |
-| Session-edge card | Configured usage and wallet sources, remaining windows and refresh status |
-| Discord / Feishu | A privacy-scoped view of the **current bound session** only |
+| 插件设置页 | 检查会话、任务、模型、渠道、后台作业与插件健康 |
+| 聊天右侧卡片 | 查看已经配置的供应商额度、余额及缓存/刷新状态 |
+| 飞书、Discord `/status` | 仅查看当前频道绑定会话的安全状态，不暴露整机信息 |
 
-An unconfigured or unavailable provider is **not** displayed as a zero balance. Provider data may be cached, delayed, or unavailable. Only configured sources appear in the quota panel.
+OpenCode Go 的窗口信息来自实际服务，DeepSeek 余额优先读取 DSH 已登录账户；若没有账户但原生 API 凭证可用，可按设置使用官方 API 余额。账户与 API 两种来源不会被擅自混算。供应商不可达、未配置或鉴权失败时不会显示假的 `¥0.00`。
 
-## Privacy and tests
+## 隐私和测试
 
-Credentials/cookies/API keys stay on the Host. Remote chat channels do **not** receive machine paths, all-account balances, other sessions, or private memory/skill text through status. Data that is not available is marked unavailable rather than fabricated.
+Cookie、API Key 与凭证保存在 Host；前端只拿经过筛选的状态和数字。远程渠道不会收到本机路径、整机额度、其他 Session 信息或记忆正文。
 
-Run `npm test` for portable provider-cache, balance-formatting and status logic. Actual balances and channel delivery require live, authorized services. Configuration sample: [config.example.json](config.example.json).
+`npm test` 检查缓存和数字展示等便携逻辑；实时余额和远端消息需登录后测试。配置：[config.example.json](config.example.json) · 安全：[SECURITY.md](SECURITY.md)。
 
-Related: [Channel Core](https://github.com/Kerberos255/dsh-channel-core) · [Lossless Context](https://github.com/Kerberos255/dsh-lossless-context) · [Dream & Memory](https://github.com/Kerberos255/dsh-memory-dreaming).
+相关：[Channel Core](https://github.com/Kerberos255/dsh-channel-core) · [无损上下文](https://github.com/Kerberos255/dsh-lossless-context) · [Dream 与长期记忆](https://github.com/Kerberos255/dsh-memory-dreaming)。
 
-MIT licensed. See [LICENSE](LICENSE).
-
-## Optional plugin diagnostics
-
-The plugin optionally emits privacy-restricted operation and failure metadata to dsh-plugin-diagnostics. Diagnostics contain event type, status, fixed error code and elapsed time; conversation content and credentials are not logged. The diagnostics plugin is optional and does not change the host requirements.
+许可证：[MIT](LICENSE)。
